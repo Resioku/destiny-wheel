@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Destiny 2 - Spin the Wheel</title>
+<style>
+  :root {
+    --bg: #3a4d7a;
+    --panel: #dbe1f0;
+    --border: #111111;
+    --text: #111111;
+    --button-bg: #1c273f;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    font-family: "Segoe UI", Tahoma, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 30px 0;
+  }
+
+  .app {
+    width: 380px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  #title {
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  #title span {
+    display: inline-block;
+  }
+
+  .box {
+    width: 100%;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    box-sizing: border-box;
+    padding: 12px 16px;
+  }
+
+  .box-label {
+    font-weight: bold;
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .result {
+    font-size: 22px;
+    font-weight: normal;
+    color: var(--text);
+    text-align: center;
+    min-height: 30px;
+  }
+
+  .result.landed {
+    font-weight: bold;
+  }
+
+  #spinButton {
+    background: var(--button-bg);
+    color: white;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 10px 0;
+    width: 220px;
+    cursor: pointer;
+  }
+
+  #spinButton:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  #buildBox .result {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div id="title"></div>
+
+  <div class="box">
+    <div class="box-label">Class</div>
+    <div class="result" id="classResult">-</div>
+  </div>
+
+  <div class="box">
+    <div class="box-label">Subclass</div>
+    <div class="result" id="subclassResult">-</div>
+  </div>
+
+  <button id="spinButton">Spin</button>
+
+  <div class="box" id="buildBox">
+    <div class="box-label">Your Build</div>
+    <div class="result">
+      <span id="buildClass">-</span>
+      <span>-</span>
+      <span id="buildSubclass">-</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------
+// MODULAR OPTIONS - edit these lists to change what's on the wheel
+// ---------------------------------------------------------
+const CLASSES = ["Titan", "Hunter", "Warlock"];
+const SUBCLASSES = ["Solar", "Arc", "Void", "Strand", "Stasis", "Prismatic"];
+
+const CLASS_COLORS = {
+  "Titan": "#e03c3c",
+  "Hunter": "#3c6ee0",
+  "Warlock": "#e0c93c",
+};
+
+const SUBCLASS_COLORS = {
+  "Solar": "#e08a2b",
+  "Arc": "#5bc8e0",
+  "Void": "#9b5be0",
+  "Strand": "#4fbf4f",
+  "Stasis": "#2b4fbf",
+  "Prismatic": "#e05bb0",
+};
+
+const DEFAULT_COLOR = "#111111";
+
+// Spin timing
+const SPIN_STEPS = 18;
+const SUBCLASS_EXTRA_STEPS = 7;
+const SPIN_DELAY_MS = 80;
+
+// Sound volume, 0.0 (silent) to 1.0 (full)
+const TICK_VOLUME = 0.08;
+const DING_VOLUME = 0.12;
+const SOUND_ENABLED = true;
+
+// Rainbow title animation
+const RAINBOW_SPEED = 0.015;
+const RAINBOW_SPREAD = 0.06;
+const RAINBOW_FRAME_MS = 60;
+
+// ---------------------------------------------------------
+// TITLE - build letter spans and animate rainbow colors
+// ---------------------------------------------------------
+const titleText = "DESTINY 2 - SPIN THE WHEEL";
+const titleEl = document.getElementById("title");
+const letterEls = [...titleText].map(ch => {
+  const span = document.createElement("span");
+  span.textContent = ch === " " ? "\u00A0" : ch;
+  titleEl.appendChild(span);
+  return span;
+});
+
+function hsvToHex(h, s, v) {
+  let r, g, b;
+  const i = Math.floor(h * 6);
+  const f = h * 6 - i;
+  const p = v * (1 - s);
+  const q = v * (1 - f * s);
+  const t = v * (1 - (1 - f) * s);
+  switch (i % 6) {
+    case 0: r = v; g = t; b = p; break;
+    case 1: r = q; g = v; b = p; break;
+    case 2: r = p; g = v; b = t; break;
+    case 3: r = p; g = q; b = v; break;
+    case 4: r = t; g = p; b = v; break;
+    case 5: r = v; g = p; b = q; break;
+  }
+  const toHex = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+let rainbowFrame = 0;
+function animateTitle() {
+  letterEls.forEach((span, i) => {
+    const hue = (rainbowFrame * RAINBOW_SPEED - i * RAINBOW_SPREAD + 1000) % 1.0;
+    span.style.color = hsvToHex(hue, 0.85, 1.0);
+  });
+  rainbowFrame++;
+  setTimeout(animateTitle, RAINBOW_FRAME_MS);
+}
+animateTitle();
+
+// ---------------------------------------------------------
+// SOUND - short synthesized tones via the Web Audio API
+// ---------------------------------------------------------
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioCtx;
+}
+
+function playTone(freq, durationMs, volume) {
+  if (!SOUND_ENABLED) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    const now = ctx.currentTime;
+    const dur = durationMs / 1000;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.004);
+    gain.gain.linearRampToValueAtTime(0, now + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + dur + 0.01);
+  } catch (e) { /* ignore audio errors */ }
+}
+
+function playTick() { playTone(500, 0.04, TICK_VOLUME); }
+function playDoneDing() {
+  playTone(700, 0.09, DING_VOLUME);
+  setTimeout(() => playTone(950, 0.12, DING_VOLUME), 70);
+}
+
+// ---------------------------------------------------------
+// SPIN LOGIC
+// ---------------------------------------------------------
+const spinButton = document.getElementById("spinButton");
+const classResultEl = document.getElementById("classResult");
+const subclassResultEl = document.getElementById("subclassResult");
+const buildClassEl = document.getElementById("buildClass");
+const buildSubclassEl = document.getElementById("buildSubclass");
+
+let spinning = { class: false, subclass: false };
+let tickTimer = null;
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function animateSpin(options, el, key, totalSteps, colorMap, onDone, step = 0) {
+  if (step === 0) spinning[key] = true;
+
+  if (step < totalSteps) {
+    el.textContent = pickRandom(options);
+    el.style.color = DEFAULT_COLOR;
+    el.classList.remove("landed");
+    setTimeout(() => animateSpin(options, el, key, totalSteps, colorMap, onDone, step + 1), SPIN_DELAY_MS);
+  } else {
+    const result = pickRandom(options);
+    el.textContent = result;
+    el.style.color = colorMap[result] || DEFAULT_COLOR;
+    el.classList.add("landed");
+    spinning[key] = false;
+    onDone(result);
+  }
+}
+
+function tickLoop() {
+  if (spinning.class || spinning.subclass) {
+    playTick();
+    tickTimer = setTimeout(tickLoop, SPIN_DELAY_MS);
+  }
+}
+
+function onSubclassLanded(result) {
+  buildSubclassEl.textContent = result;
+  buildSubclassEl.style.color = SUBCLASS_COLORS[result] || DEFAULT_COLOR;
+  spinButton.disabled = false;
+  playDoneDing();
+}
+
+function onClassLanded(result) {
+  buildClassEl.textContent = result;
+  buildClassEl.style.color = CLASS_COLORS[result] || DEFAULT_COLOR;
+}
+
+function spinAll() {
+  if (spinning.class || spinning.subclass) return;
+
+  // Unlock audio on first user interaction (required by some browsers)
+  getAudioCtx();
+
+  spinButton.disabled = true;
+
+  animateSpin(CLASSES, classResultEl, "class", SPIN_STEPS, CLASS_COLORS, onClassLanded);
+  animateSpin(SUBCLASSES, subclassResultEl, "subclass", SPIN_STEPS + SUBCLASS_EXTRA_STEPS, SUBCLASS_COLORS, onSubclassLanded);
+  tickLoop();
+}
+
+spinButton.addEventListener("click", spinAll);
+</script>
+
+</body>
+</html>
