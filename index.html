@@ -369,16 +369,22 @@ animateTitle();
 // NOTES / PATCH NOTES PANELS - just display whatever is written in notes.js
 // ---------------------------------------------------------
 
-// Turns any http(s):// link in plain text into a real clickable <a> tag.
-// Text is escaped first so nothing you type can accidentally break the
-// page layout - only the URLs themselves become actual HTML.
+// Turns any http(s):// link in plain text into a real clickable <a> tag,
+// and any **text** into bold <strong> text. Text is escaped first so
+// nothing you type can accidentally break the page layout - only the
+// specific patterns you use become actual HTML.
 function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function linkify(text) {
-  const escaped = escapeHtml(text);
-  return escaped.replace(/(https?:\/\/[^\s<]+)/g, (rawUrl) => {
+function formatNotesText(text) {
+  let html = escapeHtml(text);
+
+  // **text** -> bold
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  // Auto-link URLs
+  html = html.replace(/(https?:\/\/[^\s<]+)/g, (rawUrl) => {
     // Trim common trailing punctuation (e.g. a period ending a sentence)
     // off the link itself so it doesn't get swept into the URL.
     let url = rawUrl;
@@ -390,10 +396,12 @@ function linkify(text) {
     }
     return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${trailing}`;
   });
+
+  return html;
 }
 
-document.getElementById("notesContent").innerHTML = typeof NOTES_TEXT !== "undefined" ? linkify(NOTES_TEXT) : "";
-document.getElementById("patchNotesContent").innerHTML = typeof PATCH_NOTES_TEXT !== "undefined" ? linkify(PATCH_NOTES_TEXT) : "";
+document.getElementById("notesContent").innerHTML = typeof NOTES_TEXT !== "undefined" ? formatNotesText(NOTES_TEXT) : "";
+document.getElementById("patchNotesContent").innerHTML = typeof PATCH_NOTES_TEXT !== "undefined" ? formatNotesText(PATCH_NOTES_TEXT) : "";
 
 // ---------------------------------------------------------
 // FILTER CHECKBOXES - built dynamically so they always match
