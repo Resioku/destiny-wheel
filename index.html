@@ -375,6 +375,60 @@ buildToggleRow("subclassToggles", SUBCLASSES, "subclassToggle", {
   suffixes: { "Prismatic": "[WIP]" },
 });
 
+// ---------------------------------------------------------
+// SAVED SETTINGS (localStorage)
+// ---------------------------------------------------------
+// Remembers filter checkboxes between visits. Fully generic: it saves
+// and restores every checkbox found inside #filtersBox by its id, so
+// adding new toggles later (or removing old ones) needs zero changes
+// here - they're picked up automatically.
+//
+// Everything lives under one key as {filters: {...}}, so if you want
+// to remember other things later (last spin result, a color theme,
+// whatever), just add another top-level section the same way filters
+// does, without touching how filters saves/loads.
+// ---------------------------------------------------------
+const STORAGE_KEY = "destinyWheelState";
+
+function loadSavedState() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  } catch (e) {
+    return {}; // storage unavailable (private browsing, etc) - just start fresh
+  }
+}
+
+function saveSavedState(partialUpdate) {
+  try {
+    const state = loadSavedState();
+    Object.assign(state, partialUpdate);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) { /* storage unavailable - silently skip saving */ }
+}
+
+function saveFilters() {
+  const filterState = {};
+  document.querySelectorAll("#filtersBox input[type=checkbox]").forEach(cb => {
+    filterState[cb.id] = cb.checked;
+  });
+  saveSavedState({ filters: filterState });
+}
+
+function loadFilters() {
+  const filterState = loadSavedState().filters || {};
+  document.querySelectorAll("#filtersBox input[type=checkbox]").forEach(cb => {
+    if (cb.id in filterState) cb.checked = filterState[cb.id];
+  });
+}
+
+loadFilters();
+
+// One listener on the container catches every checkbox inside it,
+// including ones added dynamically above - no per-checkbox wiring needed.
+document.getElementById("filtersBox").addEventListener("change", (e) => {
+  if (e.target.type === "checkbox") saveFilters();
+});
+
 function getEnabledNames(names, prefix) {
   return names.filter(name => document.getElementById(`${prefix}-${name}`).checked);
 }
