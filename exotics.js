@@ -23,7 +23,7 @@
 const EXOTICS = {
   Titan: {
     Solar: [
-      "Khepri’s Horn", 
+      "Khepri's Horn", 
       "Loreley Splendor Helm", 
       "Ashen Wake",
       "Pyrogale Gauntlets", 
