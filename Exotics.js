@@ -31,6 +31,7 @@ const EXOTICS = {
     Stasis: [
     ],
     Neutral: [
+      "Fish Fillet",
     ],
     Prismatic: [
     ],
@@ -48,6 +49,7 @@ const EXOTICS = {
     Stasis: [
     ],
     Neutral: [
+      "Fish Fillet",
     ],
     Prismatic: [
     ],
@@ -65,6 +67,7 @@ const EXOTICS = {
     Stasis: [
     ],
     Neutral: [
+      "Fish Fillet",
     ],
     Prismatic: [
     ],
