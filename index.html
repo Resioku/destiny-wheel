@@ -452,9 +452,9 @@ function buildExoticEntries(className, subclassName) {
   if (!classData) return [];
 
   let entries;
-  // if (subclassName === "Prismatic") {
-  //   entries = toEntries(classData.Prismatic || [], 1);
-  // } else {
+  if (subclassName === "Prismatic") {
+    entries = toEntries(classData.Prismatic || [], 1);
+  } else {
     const subclassEntries = toEntries(classData[subclassName] || [], 1);
     const neutralEntries = document.getElementById("toggle-neutral").checked
       ? toEntries(classData.Neutral || [], NEUTRAL_WEIGHT)
