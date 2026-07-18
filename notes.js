@@ -7,3 +7,19 @@ const NOTES_TEXT = `
 
 - If you see any bugs or have any suggestions, let me know on Discord at Drift's End! https://discord.gg/QezssQZGCw
 `;
+
+// Same idea, but for a running changelog. This box scrolls on its own,
+// so feel free to just keep adding entries at the top (or bottom,
+// whichever you prefer) as things change.
+const PATCH_NOTES_TEXT = `
+7/18/2026
+- Added Filter Saving
+- Added Notes
+- Allowed Prismatic to pull from the Neutral exotics, still haven't added every exotic it synergizes with however
+- Added Filters
+- Added Exotic Armor Randomizing
+- Added Patch Notes
+
+7/17/2026
+- Creation
+`;
