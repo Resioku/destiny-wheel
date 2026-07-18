@@ -4,5 +4,8 @@
 
 const NOTES_TEXT = `
 - Prismatic is marked [WIP] and off by default in Filters. It technically can use a lot of non-Prismatic exotics, but
-  that list isn't built out yet. 
+  that list isn't built out yet.
+
+- If you see any bugs or have any suggestions, let me know on Discord at Drift's End!
+  https://discord.gg/QezssQZGCw
 `;
