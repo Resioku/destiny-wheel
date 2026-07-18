@@ -98,7 +98,7 @@ const EXOTICS = {
       "Fortune's Favor",
     ],
     Prismatic: [
-      "Relativism"
+      "Relativism",
     ],
   },
 
