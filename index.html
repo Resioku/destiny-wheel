@@ -99,6 +99,61 @@
     font-size: 15px;
     margin-top: 4px;
   }
+
+  #filtersBox {
+    padding: 0;
+    background: #c5c9d4;
+  }
+
+  #filtersBox summary {
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 12px 16px;
+    list-style: none;
+  }
+
+  #filtersBox summary::-webkit-details-marker {
+    display: none;
+  }
+
+  #filtersBox summary::before {
+    content: "▸ ";
+  }
+
+  #filtersBox[open] summary::before {
+    content: "▾ ";
+  }
+
+  .filters-content {
+    padding: 0 16px 14px 16px;
+  }
+
+  .filter-group {
+    margin-bottom: 12px;
+  }
+
+  .filter-group-label {
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #333;
+    margin-bottom: 5px;
+  }
+
+  .toggle-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+  }
 </style>
 </head>
 <body>
@@ -134,6 +189,32 @@
       <span id="buildExotic">-</span>
     </div>
   </div>
+
+  <details class="box" id="filtersBox">
+    <summary>Filters</summary>
+    <div class="filters-content">
+
+      <div class="filter-group">
+        <div class="filter-group-label">Classes</div>
+        <div class="toggle-row" id="classToggles"></div>
+      </div>
+
+      <div class="filter-group">
+        <div class="filter-group-label">Subclasses</div>
+        <div class="toggle-row" id="subclassToggles"></div>
+      </div>
+
+      <div class="filter-group">
+        <div class="filter-group-label">Exotic Pool</div>
+        <div class="toggle-row">
+          <label class="toggle-item"><input type="checkbox" id="toggle-neutral" checked> Include Neutral</label>
+          <label class="toggle-item"><input type="checkbox" id="toggle-pvp" checked> Include PvP-only</label>
+          <label class="toggle-item"><input type="checkbox" id="toggle-pve" checked> Include PvE-only</label>
+        </div>
+      </div>
+
+    </div>
+  </details>
 </div>
 
 <script src="exotics.js"></script>
@@ -162,6 +243,11 @@ const SUBCLASS_COLORS = {
 const DEFAULT_COLOR = "#111111";
 const EXOTIC_COLOR = "#c9a227";     // gold, matching Destiny's exotic rarity color
 const EMPTY_LIST_COLOR = "#666666"; // used when a list has nothing added yet
+
+// How much less often Neutral exotics show up relative to subclass-specific
+// ones, since Neutral lists tend to be much longer. 1.0 = no de-emphasis,
+// 0.5 = Neutral entries are half as likely each as a subclass-specific one.
+const NEUTRAL_WEIGHT = 0.5;
 
 // Spin timing
 const SPIN_STEPS = 18;
@@ -221,6 +307,31 @@ function animateTitle() {
 animateTitle();
 
 // ---------------------------------------------------------
+// FILTER CHECKBOXES - built dynamically so they always match
+// whatever is in CLASSES / SUBCLASSES above
+// ---------------------------------------------------------
+function buildToggleRow(containerId, names, prefix) {
+  const container = document.getElementById(containerId);
+  names.forEach(name => {
+    const label = document.createElement("label");
+    label.className = "toggle-item";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = true;
+    checkbox.id = `${prefix}-${name}`;
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(" " + name));
+    container.appendChild(label);
+  });
+}
+buildToggleRow("classToggles", CLASSES, "classToggle");
+buildToggleRow("subclassToggles", SUBCLASSES, "subclassToggle");
+
+function getEnabledNames(names, prefix) {
+  return names.filter(name => document.getElementById(`${prefix}-${name}`).checked);
+}
+
+// ---------------------------------------------------------
 // SOUND - short synthesized tones via the Web Audio API
 // ---------------------------------------------------------
 let audioCtx = null;
@@ -269,32 +380,60 @@ const buildExoticEl = document.getElementById("buildExotic");
 
 let spinning = { class: false, subclass: false, exotic: false };
 let tickTimer = null;
+let lastClassResult = null;
 
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+// Every spinnable item is an {name, weight} entry. Plain lists (classes,
+// subclasses) just get weight 1 for everyone, which behaves identically
+// to a plain random pick.
+function toEntries(names, weight = 1) {
+  return names.map(name => ({ name, weight }));
 }
 
-// Builds the exotic pool for a given class + subclass result.
+function pickUniform(entries) {
+  return entries[Math.floor(Math.random() * entries.length)].name;
+}
+
+function pickWeighted(entries) {
+  const total = entries.reduce((sum, e) => sum + e.weight, 0);
+  let r = Math.random() * total;
+  for (const e of entries) {
+    if (r < e.weight) return e.name;
+    r -= e.weight;
+  }
+  return entries[entries.length - 1].name; // fallback for rounding edge cases
+}
+
+// Builds the exotic entry list for a given class + subclass result,
+// applying the Neutral weight and the PvP/PvE filter checkboxes.
 // Prismatic gets its own dedicated list (not combined with Neutral).
-// Everything else combines that subclass's list with the class's Neutral list.
-function getExoticPool(className, subclassName) {
+function buildExoticEntries(className, subclassName) {
   const classData = EXOTICS[className];
   if (!classData) return [];
 
+  let entries;
   if (subclassName === "Prismatic") {
-    return (classData.Prismatic || []).slice();
+    entries = toEntries(classData.Prismatic || [], 1);
+  } else {
+    const subclassEntries = toEntries(classData[subclassName] || [], 1);
+    const neutralEntries = document.getElementById("toggle-neutral").checked
+      ? toEntries(classData.Neutral || [], NEUTRAL_WEIGHT)
+      : [];
+    entries = subclassEntries.concat(neutralEntries);
   }
 
-  const subclassList = classData[subclassName] || [];
-  const neutralList = classData.Neutral || [];
-  return subclassList.concat(neutralList);
+  const includePvP = document.getElementById("toggle-pvp").checked;
+  const includePvE = document.getElementById("toggle-pve").checked;
+  return entries.filter(e => {
+    if (!includePvP && PVP_ONLY_EXOTICS.includes(e.name)) return false;
+    if (!includePvE && PVE_ONLY_EXOTICS.includes(e.name)) return false;
+    return true;
+  });
 }
 
-function animateSpin(options, el, key, totalSteps, colorResolver, onDone, step = 0) {
+function animateSpin(entries, el, key, totalSteps, colorResolver, onDone, emptyMessage, step = 0) {
   if (step === 0) {
-    if (options.length === 0) {
-      // Nothing in this list yet - show a placeholder instead of erroring
-      el.textContent = "No exotics added yet";
+    if (entries.length === 0) {
+      el.textContent = emptyMessage;
       el.style.color = EMPTY_LIST_COLOR;
       el.classList.remove("landed");
       onDone(null);
@@ -304,12 +443,12 @@ function animateSpin(options, el, key, totalSteps, colorResolver, onDone, step =
   }
 
   if (step < totalSteps) {
-    el.textContent = pickRandom(options);
+    el.textContent = pickUniform(entries);
     el.style.color = DEFAULT_COLOR;
     el.classList.remove("landed");
-    setTimeout(() => animateSpin(options, el, key, totalSteps, colorResolver, onDone, step + 1), SPIN_DELAY_MS);
+    setTimeout(() => animateSpin(entries, el, key, totalSteps, colorResolver, onDone, emptyMessage, step + 1), SPIN_DELAY_MS);
   } else {
-    const result = pickRandom(options);
+    const result = pickWeighted(entries);
     el.textContent = result;
     el.style.color = colorResolver(result);
     el.classList.add("landed");
@@ -325,34 +464,26 @@ function tickLoop() {
   }
 }
 
-let lastClassResult = null;
-
 function onClassLanded(result) {
   lastClassResult = result;
-  buildClassEl.textContent = result;
-  buildClassEl.style.color = CLASS_COLORS[result] || DEFAULT_COLOR;
+  buildClassEl.textContent = result || "-";
+  buildClassEl.style.color = result ? (CLASS_COLORS[result] || DEFAULT_COLOR) : DEFAULT_COLOR;
 }
 
 function onSubclassLanded(result) {
-  buildSubclassEl.textContent = result;
-  buildSubclassEl.style.color = SUBCLASS_COLORS[result] || DEFAULT_COLOR;
+  buildSubclassEl.textContent = result || "-";
+  buildSubclassEl.style.color = result ? (SUBCLASS_COLORS[result] || DEFAULT_COLOR) : DEFAULT_COLOR;
 
   // Once class + subclass are both known, spin the exotic wheel using
-  // the matching pool (subclass list + that class's Neutral list).
-  // No need to restart tickLoop here - it's already running from spinAll()
-  // and keeps going as long as any wheel (including this one) is spinning.
-  const pool = getExoticPool(lastClassResult, result);
-  animateSpin(pool, exoticResultEl, "exotic", SPIN_STEPS, () => EXOTIC_COLOR, onExoticLanded);
+  // the matching pool (subclass list + that class's Neutral list,
+  // weighted and filtered by the Filters panel checkboxes).
+  const entries = buildExoticEntries(lastClassResult, result);
+  animateSpin(entries, exoticResultEl, "exotic", SPIN_STEPS, () => EXOTIC_COLOR, onExoticLanded, "No exotics match your filters");
 }
 
 function onExoticLanded(result) {
-  if (result) {
-    buildExoticEl.textContent = result;
-    buildExoticEl.style.color = EXOTIC_COLOR;
-  } else {
-    buildExoticEl.textContent = "-";
-    buildExoticEl.style.color = DEFAULT_COLOR;
-  }
+  buildExoticEl.textContent = result || "-";
+  buildExoticEl.style.color = result ? EXOTIC_COLOR : DEFAULT_COLOR;
   spinButton.disabled = false;
   playDoneDing();
 }
@@ -368,8 +499,11 @@ function spinAll() {
   exoticResultEl.style.color = DEFAULT_COLOR;
   exoticResultEl.classList.remove("landed");
 
-  animateSpin(CLASSES, classResultEl, "class", SPIN_STEPS, (r) => CLASS_COLORS[r] || DEFAULT_COLOR, onClassLanded);
-  animateSpin(SUBCLASSES, subclassResultEl, "subclass", SPIN_STEPS + SUBCLASS_EXTRA_STEPS, (r) => SUBCLASS_COLORS[r] || DEFAULT_COLOR, onSubclassLanded);
+  const enabledClasses = toEntries(getEnabledNames(CLASSES, "classToggle"));
+  const enabledSubclasses = toEntries(getEnabledNames(SUBCLASSES, "subclassToggle"));
+
+  animateSpin(enabledClasses, classResultEl, "class", SPIN_STEPS, (r) => CLASS_COLORS[r] || DEFAULT_COLOR, onClassLanded, "No classes enabled");
+  animateSpin(enabledSubclasses, subclassResultEl, "subclass", SPIN_STEPS + SUBCLASS_EXTRA_STEPS, (r) => SUBCLASS_COLORS[r] || DEFAULT_COLOR, onSubclassLanded, "No subclasses enabled");
   tickLoop();
 }
 
