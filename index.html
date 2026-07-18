@@ -171,7 +171,7 @@
     <div class="result" id="subclassResult">-</div>
   </div>
 
-  <div class="box">
+  <div class="box" id="exoticBox">
     <div class="box-label">Exotic Armor</div>
     <div class="result" id="exoticResult">-</div>
   </div>
@@ -202,6 +202,13 @@
       <div class="filter-group">
         <div class="filter-group-label">Subclasses</div>
         <div class="toggle-row" id="subclassToggles"></div>
+      </div>
+
+      <div class="filter-group">
+        <div class="filter-group-label">Exotic Armor</div>
+        <div class="toggle-row">
+          <label class="toggle-item"><input type="checkbox" id="toggle-exotic-enabled" checked> Enable Exotic Armor wheel</label>
+        </div>
       </div>
 
       <div class="filter-group">
@@ -331,6 +338,25 @@ function getEnabledNames(names, prefix) {
   return names.filter(name => document.getElementById(`${prefix}-${name}`).checked);
 }
 
+// Master on/off switch for the whole Exotic Armor stage. When off, the
+// box is hidden, it's skipped during the spin, and it's left out of
+// the "Your Build" summary entirely.
+const exoticEnabledToggle = document.getElementById("toggle-exotic-enabled");
+const exoticBoxEl = document.getElementById("exoticBox");
+const buildExoticRowEl = document.getElementById("buildExoticRow");
+
+function isExoticEnabled() {
+  return exoticEnabledToggle.checked;
+}
+
+function updateExoticVisibility() {
+  const show = isExoticEnabled();
+  exoticBoxEl.style.display = show ? "" : "none";
+  buildExoticRowEl.style.display = show ? "" : "none";
+}
+exoticEnabledToggle.addEventListener("change", updateExoticVisibility);
+updateExoticVisibility();
+
 // ---------------------------------------------------------
 // SOUND - short synthesized tones via the Web Audio API
 // ---------------------------------------------------------
@@ -382,11 +408,26 @@ let spinning = { class: false, subclass: false, exotic: false };
 let tickTimer = null;
 let lastClassResult = null;
 
-// Every spinnable item is an {name, weight} entry. Plain lists (classes,
-// subclasses) just get weight 1 for everyone, which behaves identically
-// to a plain random pick.
+// Every spinnable item is an {name, weight, tag} entry. Plain lists
+// (classes, subclasses) just get weight 1 and no tag for everyone,
+// which behaves identically to a plain random pick.
+//
+// Exotic names can carry an inline [PVP] or [PVE] tag right in the
+// string (e.g. "Frost-EE5 [PVP]") - parseTag() strips that off for
+// display and returns it separately so it can be filtered on.
+function parseTag(rawName) {
+  const match = rawName.match(/\s*\[(pvp|pve)\]\s*$/i);
+  if (match) {
+    return { name: rawName.slice(0, match.index).trim(), tag: match[1].toUpperCase() };
+  }
+  return { name: rawName, tag: null };
+}
+
 function toEntries(names, weight = 1) {
-  return names.map(name => ({ name, weight }));
+  return names.map(rawName => {
+    const { name, tag } = parseTag(rawName);
+    return { name, weight, tag };
+  });
 }
 
 function pickUniform(entries) {
@@ -424,8 +465,8 @@ function buildExoticEntries(className, subclassName) {
   const includePvP = document.getElementById("toggle-pvp").checked;
   const includePvE = document.getElementById("toggle-pve").checked;
   return entries.filter(e => {
-    if (!includePvP && PVP_ONLY_EXOTICS.includes(e.name)) return false;
-    if (!includePvE && PVE_ONLY_EXOTICS.includes(e.name)) return false;
+    if (!includePvP && e.tag === "PVP") return false;
+    if (!includePvE && e.tag === "PVE") return false;
     return true;
   });
 }
@@ -474,6 +515,11 @@ function onSubclassLanded(result) {
   buildSubclassEl.textContent = result || "-";
   buildSubclassEl.style.color = result ? (SUBCLASS_COLORS[result] || DEFAULT_COLOR) : DEFAULT_COLOR;
 
+  if (!isExoticEnabled()) {
+    finishSpin();
+    return;
+  }
+
   // Once class + subclass are both known, spin the exotic wheel using
   // the matching pool (subclass list + that class's Neutral list,
   // weighted and filtered by the Filters panel checkboxes).
@@ -484,6 +530,10 @@ function onSubclassLanded(result) {
 function onExoticLanded(result) {
   buildExoticEl.textContent = result || "-";
   buildExoticEl.style.color = result ? EXOTIC_COLOR : DEFAULT_COLOR;
+  finishSpin();
+}
+
+function finishSpin() {
   spinButton.disabled = false;
   playDoneDing();
 }
