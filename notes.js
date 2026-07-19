@@ -15,6 +15,7 @@ const PATCH_NOTES_TEXT = `
 These notes are ordered by MM/DD/YYYY
 
 **7/19/2026**
+- Added better mobile support
 - Customization and renamed the site to "Destiny 2 Randomizer, the name fits better since I scrapped the wheel idea
 - Added Spins counters, Total Spins count your own and Global Spins count everyones spins
 
