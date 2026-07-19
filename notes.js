@@ -12,6 +12,11 @@ const NOTES_TEXT = `
 // so feel free to just keep adding entries at the top (or bottom,
 // whichever you prefer) as things change.
 const PATCH_NOTES_TEXT = `
+These notes are ordered by MM/DD/YYYY
+
+**7/19/2026**
+- Added Spins counters, Total Spins count your own and Global Spins count everyones spins
+
 **7/18/2026**
 - Added an Icon and Background
 - Added Filter Saving, this makes it so filters will save on and off states between uses if you refresh or open/close the tab
