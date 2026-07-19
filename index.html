@@ -76,6 +76,16 @@
     font-weight: 700;
   }
 
+  #statsDisplay {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    color: #ffffff;
+    font-size: 13px;
+    line-height: 1.6;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  }
+
   .app {
     width: 380px;
     display: flex;
@@ -210,6 +220,11 @@
 </style>
 </head>
 <body>
+
+<div id="statsDisplay">
+  <div id="totalSpinsText">Total Spins: -</div>
+  <div id="globalSpinsText">Global Spins: -</div>
+</div>
 
 <div id="sidebar">
   <div class="side-panel" id="notesPanel">
@@ -490,6 +505,68 @@ function loadFilters() {
 
 loadFilters();
 
+// ---------------------------------------------------------
+// SPIN COUNTERS - "Total Spins" (this browser only, via the same
+// localStorage system as filters) and "Global Spins" (every visitor,
+// via a small free counter API since GitHub Pages has no server of
+// its own to keep a shared number on).
+// ---------------------------------------------------------
+const totalSpinsEl = document.getElementById("totalSpinsText");
+const globalSpinsEl = document.getElementById("globalSpinsText");
+
+function getTotalSpins() {
+  return (loadSavedState().stats || {}).totalSpins || 0;
+}
+
+function incrementTotalSpins() {
+  const state = loadSavedState();
+  const stats = state.stats || {};
+  stats.totalSpins = (stats.totalSpins || 0) + 1;
+  saveSavedState({ stats });
+  return stats.totalSpins;
+}
+
+function updateTotalSpinsDisplay() {
+  totalSpinsEl.textContent = `Total Spins: ${getTotalSpins()}`;
+}
+updateTotalSpinsDisplay();
+
+// Uses countapi.mileshilliard.com - a free, no-signup counter API.
+// Wrapped in try/catch everywhere: if this service is ever down, the
+// Global Spins number just stops updating instead of breaking anything.
+const GLOBAL_COUNTER_BASE = "https://countapi.mileshilliard.com/api/v1";
+const GLOBAL_SPIN_KEY = "driftsend-d2-spinwheel-global-spins-v1";
+
+async function fetchGlobalSpins() {
+  try {
+    const res = await fetch(`${GLOBAL_COUNTER_BASE}/get/${GLOBAL_SPIN_KEY}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.value;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function hitGlobalSpins() {
+  try {
+    const res = await fetch(`${GLOBAL_COUNTER_BASE}/hit/${GLOBAL_SPIN_KEY}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.value;
+  } catch (e) {
+    return null;
+  }
+}
+
+function updateGlobalSpinsDisplay(value) {
+  globalSpinsEl.textContent = value !== null ? `Global Spins: ${value}` : "Global Spins: unavailable";
+}
+
+// Read-only on page load - just displays the current count, doesn't
+// increment it (a page visit isn't a spin).
+fetchGlobalSpins().then(updateGlobalSpinsDisplay);
+
 // One listener on the container catches every checkbox inside it,
 // including ones added dynamically above - no per-checkbox wiring needed.
 document.getElementById("filtersBox").addEventListener("change", (e) => {
@@ -716,6 +793,10 @@ function spinAll() {
   exoticResultEl.textContent = "-";
   exoticResultEl.style.color = DEFAULT_COLOR;
   exoticResultEl.classList.remove("landed");
+
+  incrementTotalSpins();
+  updateTotalSpinsDisplay();
+  hitGlobalSpins().then(updateGlobalSpinsDisplay);
 
   const enabledClasses = toEntries(getEnabledNames(CLASSES, "classToggle"));
   const enabledSubclasses = toEntries(getEnabledNames(SUBCLASSES, "subclassToggle"));
