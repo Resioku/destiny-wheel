@@ -29,4 +29,4 @@ const CONFIG = {
     message: "Disclaimer: Some exotics tagged PvP-only may not be fully verified yet, since not every exotic has been tagged. Take the PvP/PvE filtering with a grain of salt for now. Please feel free to join the Discord and debate the picks.",
   },
 
-};
+}; 
