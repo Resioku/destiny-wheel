@@ -364,7 +364,6 @@
         <div class="toggle-row">
           <label class="toggle-item"><input type="checkbox" id="toggle-neutral" checked> Include Neutral</label>
           <label class="toggle-item"><input type="checkbox" id="toggle-pvp" checked> Include PvP-only [WIP]</label>
-          <label class="toggle-item"><input type="checkbox" id="toggle-pve" checked> Include PvE-only [WIP]</label>
         </div>
       </div>
 
@@ -666,7 +665,17 @@ if (!isGlobalSpinsEnabled()) {
 // One listener on the container catches every checkbox inside it,
 // including ones added dynamically above - no per-checkbox wiring needed.
 document.getElementById("filtersBox").addEventListener("change", (e) => {
-  if (e.target.type === "checkbox") saveFilters();
+  if (e.target.type !== "checkbox") return;
+  saveFilters();
+
+  // Show a one-time-per-click disclaimer when PvP-only gets turned ON
+  // (not when it's turned off). Both the on/off switch and the message
+  // itself live in config.js.
+  if (e.target.id === "toggle-pvp" && e.target.checked) {
+    if (CONFIG && CONFIG.pvpDisclaimer && CONFIG.pvpDisclaimer.enabled) {
+      alert(CONFIG.pvpDisclaimer.message);
+    }
+  }
 });
 
 function getEnabledNames(names, prefix) {
@@ -804,10 +813,8 @@ function buildExoticEntries(className, subclassName) {
   }
 
   const includePvP = document.getElementById("toggle-pvp").checked;
-  const includePvE = document.getElementById("toggle-pve").checked;
   return entries.filter(e => {
     if (!includePvP && e.tag === "PVP") return false;
-    if (!includePvE && e.tag === "PVE") return false;
     return true;
   });
 }
