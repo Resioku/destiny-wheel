@@ -15,6 +15,7 @@ const PATCH_NOTES_TEXT = `
 These notes are ordered by MM/DD/YYYY
 
 **7/20/2026**
+- Added tabs for the Randomizer and for Weeklies like Xur or Reset. Potential to show loot pools once the API is set up
 -Added PvP tags to some exotics, let me know if you have more you want added, or removed
 -Removed the PvE filter option for now
 
