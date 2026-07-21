@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Destiny 2 - Spin the Wheel</title>
+<title>Destiny 2 Randomizer</title>
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
@@ -108,6 +108,21 @@
     border-radius: 4px;
     padding: 8px 10px;
     cursor: default;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .xur-item-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .xur-item-text {
+    flex: 1;
+    min-width: 0;
   }
 
   .xur-item-name {
@@ -582,7 +597,14 @@ function showTab(tab) {
   tabButtonWeeklies.classList.toggle("active", !showRandomizer);
 }
 tabButtonRandomizer.addEventListener("click", () => showTab("randomizer"));
-tabButtonWeeklies.addEventListener("click", () => showTab("weeklies"));
+let xurLoadedOnce = false;
+tabButtonWeeklies.addEventListener("click", () => {
+  showTab("weeklies");
+  if (!xurLoadedOnce) {
+    xurLoadedOnce = true;
+    loadXurInventoryOnce();
+  }
+});
 
 // ---------------------------------------------------------
 // XUR TRACKER
@@ -639,41 +661,131 @@ function updateXurStatus() {
   return isHere;
 }
 
-function renderXurInventory(isHere) {
+// ---------------------------------------------------------
+// LIVE XUR DATA (Bungie API)
+// ---------------------------------------------------------
+// Stage 1 (this code): item names, types, icons, and prices - all
+// public data, no login required.
+// Stage 2 (not built yet): exact stat rolls on the specific items for
+// sale - that IS tied to a real account, so it needs the OAuth login
+// flow we registered for but haven't wired up. Until then, items just
+// won't show a stat breakdown.
+const BUNGIE_API_KEY = "211c7360baf14cee9225fa34aef06461";
+const XUR_VENDOR_HASH = "2190858386";
+
+// Downloads the manifest's full item definition table and pulls out
+// just the entries we actually asked for, keyed by hash. The full
+// table is large (tens of MB), so nothing beyond what's requested
+// gets kept around.
+async function fetchItemDefinitions(hashes) {
+  const manifestRes = await fetch("https://www.bungie.net/Platform/Destiny2/Manifest/", {
+    headers: { "X-API-Key": BUNGIE_API_KEY }
+  });
+  if (!manifestRes.ok) throw new Error("Manifest request failed: " + manifestRes.status);
+  const manifestData = await manifestRes.json();
+
+  const definitionPath = manifestData?.Response?.jsonWorldComponentContentPaths?.en?.DestinyInventoryItemDefinition;
+  if (!definitionPath) throw new Error("Could not find item definition path in manifest");
+
+  const definitionsRes = await fetch("https://www.bungie.net" + definitionPath);
+  if (!definitionsRes.ok) throw new Error("Item definitions request failed: " + definitionsRes.status);
+  const allDefinitions = await definitionsRes.json();
+
+  const result = {};
+  hashes.forEach(hash => {
+    const def = allDefinitions[hash];
+    if (!def) return;
+    result[hash] = {
+      name: def.displayProperties?.name || `Unknown Item (${hash})`,
+      type: def.itemTypeDisplayName || "",
+      icon: def.displayProperties?.icon ? ("https://www.bungie.net" + def.displayProperties.icon) : null,
+      description: def.displayProperties?.description || def.flavorText || "",
+    };
+  });
+  return result;
+}
+
+async function fetchXurLiveData() {
+  const vendorRes = await fetch("https://www.bungie.net/Platform/Destiny2/Vendors/?components=400,401,402", {
+    headers: { "X-API-Key": BUNGIE_API_KEY }
+  });
+  if (!vendorRes.ok) throw new Error("Vendor request failed: " + vendorRes.status);
+  const vendorData = await vendorRes.json();
+
+  const salesData = vendorData?.Response?.sales?.data?.[XUR_VENDOR_HASH]?.saleItems;
+  if (!salesData) throw new Error("No Xûr sale data in the response");
+
+  const saleItems = Object.values(salesData);
+  if (saleItems.length === 0) return [];
+
+  // Collect every hash we need to look up: the items themselves, plus
+  // whatever currency each one costs (e.g. Legendary Shards).
+  const hashesNeeded = new Set();
+  saleItems.forEach(sale => {
+    hashesNeeded.add(sale.itemHash);
+    (sale.costs || []).forEach(cost => hashesNeeded.add(cost.itemHash));
+  });
+
+  const definitions = await fetchItemDefinitions([...hashesNeeded]);
+
+  return saleItems.map(sale => {
+    const def = definitions[sale.itemHash] || {};
+    const costParts = (sale.costs || []).map(cost => {
+      const costDef = definitions[cost.itemHash];
+      const costName = costDef ? costDef.name : `Item ${cost.itemHash}`;
+      return `${cost.quantity} ${costName}`;
+    });
+
+    return {
+      name: def.name || `Unknown Item (${sale.itemHash})`,
+      type: def.type || "",
+      icon: def.icon || null,
+      description: def.description || "",
+      cost: costParts.join(", "),
+    };
+  });
+}
+
+function renderXurInventoryItems(items) {
   const listEl = document.getElementById("xurInventoryList");
   const emptyEl = document.getElementById("xurEmptyMessage");
   listEl.innerHTML = "";
 
-  if (!isHere) {
+  if (!items || items.length === 0) {
     emptyEl.style.display = "block";
-    emptyEl.textContent = "Check back once Xûr arrives.";
-    return;
-  }
-
-  const inventory = (typeof XUR_INVENTORY !== "undefined") ? XUR_INVENTORY : [];
-  if (inventory.length === 0) {
-    emptyEl.style.display = "block";
-    emptyEl.textContent = "Xûr's inventory hasn't been added yet this week.";
+    emptyEl.textContent = "Xûr's inventory isn't available right now.";
     return;
   }
 
   emptyEl.style.display = "none";
-  inventory.forEach(item => {
+  items.forEach(item => {
     const itemEl = document.createElement("div");
     itemEl.className = "xur-item";
 
+    if (item.icon) {
+      const iconEl = document.createElement("img");
+      iconEl.src = item.icon;
+      iconEl.className = "xur-item-icon";
+      itemEl.appendChild(iconEl);
+    }
+
+    const textWrap = document.createElement("div");
+    textWrap.className = "xur-item-text";
+
     const nameEl = document.createElement("div");
     nameEl.className = "xur-item-name";
-    nameEl.textContent = item.name + (item.forClass ? ` (${item.forClass})` : "");
-    itemEl.appendChild(nameEl);
+    nameEl.textContent = item.name;
+    textWrap.appendChild(nameEl);
 
-    const typeEl = document.createElement("div");
-    typeEl.className = "xur-item-type";
-    typeEl.textContent = item.type || "";
-    itemEl.appendChild(typeEl);
+    const detailEl = document.createElement("div");
+    detailEl.className = "xur-item-type";
+    detailEl.textContent = [item.type, item.cost].filter(Boolean).join(" · ");
+    textWrap.appendChild(detailEl);
 
-    if (item.stats && item.stats.length > 0) {
-      itemEl.addEventListener("mousemove", (e) => showStatTooltip(e, item));
+    itemEl.appendChild(textWrap);
+
+    if (item.description) {
+      itemEl.addEventListener("mousemove", (e) => showItemTooltip(e, item));
       itemEl.addEventListener("mouseleave", hideStatTooltip);
     }
 
@@ -681,16 +793,9 @@ function renderXurInventory(isHere) {
   });
 }
 
-function showStatTooltip(e, item) {
+function showItemTooltip(e, item) {
   const tooltip = document.getElementById("statTooltip");
-  let html = `<div class="tooltip-title">${item.name}</div>`;
-  item.stats.forEach(stat => {
-    html += `${stat.label}: ${stat.value}<br>`;
-  });
-  if (item.perk) {
-    html += `<br>${item.perk}`;
-  }
-  tooltip.innerHTML = html;
+  tooltip.innerHTML = `<div class="tooltip-title">${item.name}</div>${item.description}`;
   tooltip.style.display = "block";
   tooltip.style.left = (e.clientX + 14) + "px";
   tooltip.style.top = (e.clientY + 14) + "px";
@@ -700,18 +805,66 @@ function hideStatTooltip() {
   document.getElementById("statTooltip").style.display = "none";
 }
 
-function refreshXurTracker() {
+// The countdown ticks every minute (cheap, pure date math). The actual
+// inventory fetch is heavy (a multi-megabyte manifest download), so it
+// only runs once per page load, not on every tick.
+function tickXurCountdown() {
+  if (!CONFIG || !CONFIG.weeklies || !CONFIG.weeklies.xurEnabled) return;
+  updateXurStatus();
+}
+
+async function loadXurInventoryOnce() {
   const xurBoxEl = document.getElementById("xurBox");
   if (!CONFIG || !CONFIG.weeklies || !CONFIG.weeklies.xurEnabled) {
     xurBoxEl.innerHTML = '<div id="xurStatus">Xûr tracking is temporarily disabled.</div>';
     return;
   }
+
   const isHere = updateXurStatus();
-  renderXurInventory(isHere);
+  const emptyEl = document.getElementById("xurEmptyMessage");
+  const listEl = document.getElementById("xurInventoryList");
+
+  if (!isHere) {
+    listEl.innerHTML = "";
+    emptyEl.style.display = "block";
+    emptyEl.textContent = "Check back once Xûr arrives.";
+    return;
+  }
+
+  emptyEl.style.display = "block";
+  emptyEl.textContent = "Loading Xûr's inventory...";
+  listEl.innerHTML = "";
+
+  try {
+    const liveItems = await fetchXurLiveData();
+    renderXurInventoryItems(liveItems);
+  } catch (err) {
+    console.error("Live Xûr data failed, falling back to manual list:", err);
+    const manualItems = (typeof XUR_INVENTORY !== "undefined") ? XUR_INVENTORY : [];
+    if (manualItems.length > 0) {
+      renderXurInventoryItems(manualItems.map(item => ({
+        name: item.name + (item.forClass ? ` (${item.forClass})` : ""),
+        type: item.type || "",
+        icon: null,
+        cost: "",
+        description: item.perk || "",
+      })));
+    } else {
+      listEl.innerHTML = "";
+      emptyEl.style.display = "block";
+      emptyEl.textContent = "Xûr's inventory isn't available right now.";
+    }
+  }
 }
 
-refreshXurTracker();
-setInterval(refreshXurTracker, 60000); // refresh every minute
+// Cheap init at page load: just get the countdown text right so it's
+// not blank the moment someone clicks into the tab. The actual heavy
+// inventory fetch is triggered lazily on first tab click instead (see
+// the tabButtonWeeklies listener above).
+if (CONFIG && CONFIG.weeklies && CONFIG.weeklies.xurEnabled) {
+  updateXurStatus();
+}
+setInterval(tickXurCountdown, 60000);
 
 // ---------------------------------------------------------
 // NOTES / PATCH NOTES PANELS - just display whatever is written in notes.js
