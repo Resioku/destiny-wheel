@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Destiny 2 Randomizer</title>
+<title>Destiny 2 - Spin the Wheel</title>
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
@@ -32,7 +32,7 @@
     height: 100vh;
     overflow: hidden;
     box-sizing: border-box;
-    padding: 126px 20px 30px 20px;
+    padding: 86px 20px 30px 20px;
   }
 
   #topBar {
@@ -57,19 +57,8 @@
     object-fit: contain;
   }
 
-  #tabBar {
-    position: fixed;
-    top: 56px;
-    left: 0;
-    width: 100%;
-    height: 40px;
-    background: #1c2645;
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    padding: 0 20px;
-    box-sizing: border-box;
-    z-index: 99;
+  #topBar .tab-button {
+    margin-left: 10px;
   }
 
   .tab-button {
@@ -80,8 +69,7 @@
     font-weight: bold;
     font-family: inherit;
     cursor: pointer;
-    padding: 8px 2px;
-    border-bottom: 2px solid transparent;
+    padding: 6px 4px;
   }
 
   .tab-button:hover {
@@ -90,7 +78,15 @@
 
   .tab-button.active {
     color: var(--button-bg);
-    border-bottom: 2px solid var(--button-bg);
+  }
+
+  #xurHeading {
+    font-size: 20px;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    text-align: center;
+    margin-bottom: 4px;
   }
 
   #xurStatus {
@@ -154,7 +150,7 @@
   #sidebar {
     position: fixed;
     left: 20px;
-    top: 126px;
+    top: 86px;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -348,7 +344,7 @@
       min-height: 100vh;
       overflow: auto;
       flex-direction: column;
-      padding: 116px 16px 24px 16px;
+      padding: 76px 16px 24px 16px;
     }
 
     .app {
@@ -383,9 +379,6 @@
 <div id="topBar">
   <img src="favicon-180.png" alt="Icon">
   <div id="title"></div>
-</div>
-
-<div id="tabBar">
   <button class="tab-button active" id="tabButtonRandomizer">Randomizer</button>
   <button class="tab-button" id="tabButtonWeeklies">Weeklies</button>
 </div>
@@ -471,8 +464,8 @@
 </div>
 
 <div class="app" id="weekliesPage" style="display: none;">
+  <div id="xurHeading">Xûr, Agent of the Nine</div>
   <div class="box" id="xurBox">
-    <div class="box-label">Xûr, Agent of the Nine</div>
     <div id="xurStatus">-</div>
     <div id="xurInventoryList"></div>
     <div id="xurEmptyMessage" style="display: none;"></div>
@@ -710,7 +703,7 @@ function hideStatTooltip() {
 function refreshXurTracker() {
   const xurBoxEl = document.getElementById("xurBox");
   if (!CONFIG || !CONFIG.weeklies || !CONFIG.weeklies.xurEnabled) {
-    xurBoxEl.innerHTML = '<div class="box-label">Xûr, Agent of the Nine</div><div id="xurStatus">Xûr tracking is temporarily disabled.</div>';
+    xurBoxEl.innerHTML = '<div id="xurStatus">Xûr tracking is temporarily disabled.</div>';
     return;
   }
   const isHere = updateXurStatus();
