@@ -26,7 +26,16 @@ const CONFIG = {
     enabled: true,
 
     // The message shown in that popup. Edit freely.
-    message: "Disclaimer: Some exotics tagged PvP-only may not be fully verified yet, since not every exotic has been tagged. Take the PvP/PvE filtering with a grain of salt for now. Please feel free to join the Discord and debate the picks.",
+    message: "Heads up: some exotics tagged PvP-only may not be fully verified yet, since not every exotic has been tagged. Take the PvP/PvE split with a grain of salt for now.",
+  },
+
+  weeklies: {
+    // Master switch for the whole Weeklies tab's Xur tracker section
+    // (both the countdown timer and the inventory list). Set to false
+    // to hide it entirely if something needs fixing and you can't get
+    // to it right away - the tab itself still works, it'll just show
+    // a simple "temporarily disabled" message instead.
+    xurEnabled: true,
   },
 
 };
