@@ -80,13 +80,17 @@
     color: var(--button-bg);
   }
 
-  #xurHeading {
+  .rotator-heading {
     font-size: 20px;
     font-weight: bold;
     color: #ffffff;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
     text-align: center;
     margin-bottom: 4px;
+  }
+
+  .rotator-heading:not(:first-child) {
+    margin-top: 6px;
   }
 
   #xurStatus {
@@ -395,7 +399,7 @@
   <img src="favicon-180.png" alt="Icon">
   <div id="title"></div>
   <button class="tab-button active" id="tabButtonRandomizer">Randomizer</button>
-  <button class="tab-button" id="tabButtonWeeklies">Weeklies</button>
+  <button class="tab-button" id="tabButtonWeeklies">Rotators</button>
 </div>
 
 <div id="statsDisplay">
@@ -479,7 +483,12 @@
 </div>
 
 <div class="app" id="weekliesPage" style="display: none;">
-  <div id="xurHeading">Xûr, Agent of the Nine</div>
+  <div class="rotator-heading">Weekly Reset</div>
+  <div class="box" id="resetBox">
+    <div id="resetStatus">-</div>
+  </div>
+
+  <div class="rotator-heading">Xûr, Agent of the Nine</div>
   <div class="box" id="xurBox">
     <div id="xurStatus">-</div>
     <div id="xurInventoryList"></div>
@@ -639,6 +648,13 @@ function formatCountdown(msRemaining) {
   if (days > 0 || hours > 0) parts.push(`${hours}h`);
   parts.push(`${minutes}m`);
   return parts.join(" ");
+}
+
+function updateResetStatus() {
+  const resetStatusEl = document.getElementById("resetStatus");
+  const nextReset = getNextUTCOccurrence(XUR_DEPART_DAY_UTC, XUR_RESET_HOUR_UTC); // Tuesday 17:00 UTC - the same weekly reset, unrelated to Xur specifically
+  const now = new Date();
+  resetStatusEl.textContent = `Next reset in ${formatCountdown(nextReset - now)}`;
 }
 
 function updateXurStatus() {
@@ -809,6 +825,7 @@ function hideStatTooltip() {
 // inventory fetch is heavy (a multi-megabyte manifest download), so it
 // only runs once per page load, not on every tick.
 function tickXurCountdown() {
+  updateResetStatus();
   if (!CONFIG || !CONFIG.weeklies || !CONFIG.weeklies.xurEnabled) return;
   updateXurStatus();
 }
